@@ -1,0 +1,33 @@
+plugins {
+    id 'application'
+}
+
+repositories {
+    mavenCentral()  
+}
+
+dependencies {
+    implementation 'org.jmonkeyengine:jme3-core:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-desktop:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-lwjgl3:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-effects:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-jogg:3.6.1-stable'
+    implementation 'org.jmonkeyengine:jme3-plugins:3.6.1-stable'
+    implementation "org.jmonkeyengine:jme3-terrain:3.6.1-stable"
+
+
+    implementation 'com.github.sarxos:webcam-capture:0.3.12'
+
+testImplementation 'org.junit.jupiter:junit-jupiter:5.10.0'
+testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+}
+
+application {
+    mainClass = 'mygame.core.GameApp'
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    failOnNoDiscoveredTests = false
+}
