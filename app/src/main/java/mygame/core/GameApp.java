@@ -3,14 +3,18 @@ package mygame.core;
 import com.jme3.app.SimpleApplication;
 import com.jme3.light.AmbientLight;
 import com.jme3.light.DirectionalLight;
+import com.jme3.material.Material;
+import com.jme3.material.RenderState;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.Vector3f;
+import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.system.AppSettings;
 import com.jme3.input.ChaseCamera;
 import com.jme3.input.KeyInput;
 import com.jme3.input.controls.ActionListener;
 import com.jme3.input.controls.KeyTrigger;
-
+import com.jme3.scene.Geometry;
+import com.jme3.scene.Spatial;
 import mygame.input.InputMapper;
 import mygame.player.PlayerController;
 import mygame.util.AnimUtils;
@@ -26,7 +30,7 @@ import java.util.List;
 import mygame.sense.ExpressionTracker;
 import mygame.ui.DialogueUi;
 import mygame.world.TerrainGround;
-
+import mygame.util.SpriteSheetUvAnimator;
 
 
 
@@ -47,6 +51,12 @@ public class GameApp extends SimpleApplication {
     private DialogueClient dialogueClient;
     private DialogueUi dialogueUi;
     private ExpressionTracker expressionTracker;
+    private Spatial maze;
+    private float tunnelAnimTime = 0f;
+    private int tunnelFrame = 0;
+    private final int tunnelFrames = 4;      
+    private final float tunnelFrameSec = 0.3f; 
+
 
 
 
@@ -196,6 +206,22 @@ public class GameApp extends SimpleApplication {
 
         // Expression tracker
         expressionTracker = new ExpressionTracker();
+
+        //Tunnel
+
+        maze = assetManager.loadModel("Models/maze_tunnel.glb");
+        maze.setLocalTranslation(0f, 0f, 0f);
+        rootNode.attachChild(maze);
+       
+        Material tunnelMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
+        tunnelMat.setTexture("ColorMap", assetManager.loadTexture("Textures/body.png"));
+        tunnelMat.getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
+
+        maze.depthFirstTraversal(spatial -> {
+            if (spatial instanceof Geometry geometry) {
+                geometry.setMaterial(tunnelMat);
+            }
+        });
    
     }
 
@@ -235,6 +261,21 @@ if (expressionTracker != null) {
     float terrainY = terrainGround.getHeight(pos.x, pos.z);
     model.setLocalTranslation(pos.x, terrainY, pos.z);
 }
+    if (terrainGround != null && maze != null) {
+        Vector3f position = maze.getLocalTranslation();
+        float y = terrainGround.getHeight(position.x, position.z);
+        maze.setLocalTranslation(position.x, y, position.z);
+        maze.setShadowMode(RenderQueue.ShadowMode.CastAndReceive);
+    }
+    if (maze != null) {
+    tunnelAnimTime += tpf;
+    if (tunnelAnimTime >= tunnelFrameSec) {
+        tunnelAnimTime = 0f;
+        tunnelFrame = (tunnelFrame + 1) % tunnelFrames;
+        SpriteSheetUvAnimator.applyFrame(maze, tunnelFrame, tunnelFrames);
+    }
+}
+
 
     }
 
