@@ -56,6 +56,9 @@ public class GameApp extends SimpleApplication {
     private int tunnelFrame = 0;
     private final int tunnelFrames = 4;      
     private final float tunnelFrameSec = 0.3f; 
+    private float mazePulsePhase = 0f;
+    private float mazeBaseScale = 1f;
+    private Vector3f mazeBasePos = new Vector3f();
 
 
 
@@ -212,7 +215,8 @@ public class GameApp extends SimpleApplication {
         maze = assetManager.loadModel("Models/maze_tunnel.glb");
         maze.setLocalTranslation(0f, 0f, 0f);
         rootNode.attachChild(maze);
-       
+        mazeBasePos.set(maze.getLocalTranslation());
+        mazeBaseScale = maze.getLocalScale().x;     
         Material tunnelMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
         tunnelMat.setTexture("ColorMap", assetManager.loadTexture("Textures/body.png"));
         tunnelMat.getAdditionalRenderState().setFaceCullMode(RenderState.FaceCullMode.Off);
@@ -274,6 +278,16 @@ if (expressionTracker != null) {
         tunnelFrame = (tunnelFrame + 1) % tunnelFrames;
         SpriteSheetUvAnimator.applyFrame(maze, tunnelFrame, tunnelFrames);
     }
+}
+    if (maze != null && expressionTracker != null) {
+    float motion = expressionTracker.getMotionAmount();
+    mazePulsePhase += tpf * (1.0f + motion * 6.0f);
+    float pulse = com.jme3.math.FastMath.sin(mazePulsePhase);
+    float scaleAmp = 0.01f + motion * 0.06f;
+    float yAmp = 0.00f + motion * 0.25f;
+    float scale = mazeBaseScale * (1f + pulse * scaleAmp);
+    maze.setLocalScale(scale);
+    maze.setLocalTranslation(mazeBasePos.x, mazeBasePos.y + pulse * yAmp, mazeBasePos.x);
 }
 
 
