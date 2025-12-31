@@ -29,7 +29,6 @@ import mygame.world.WorldMap;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Vector;
 
 import mygame.sense.ExpressionTracker;
 import mygame.ui.DialogueUi;
