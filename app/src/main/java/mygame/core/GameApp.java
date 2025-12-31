@@ -25,8 +25,12 @@ import mygame.art.PanelField;
 import mygame.dialogue.DialogueClient;
 import mygame.art.GifSheetPanel;
 import mygame.world.WaterSystem;
+import mygame.world.WorldMap;
+
 import java.util.Arrays;
 import java.util.List;
+import java.util.Vector;
+
 import mygame.sense.ExpressionTracker;
 import mygame.ui.DialogueUi;
 import mygame.world.TerrainGround;
@@ -59,8 +63,10 @@ public class GameApp extends SimpleApplication {
     private float mazePulsePhase = 0f;
     private float mazeBaseScale = 1f;
     private Vector3f mazeBasePos = new Vector3f();
-
-
+    private WorldMap worldMap;
+    private float worldRadius = 35f;   
+    private float pushStrength = 8f;     
+    private float hardClampMargin = 2f;  
 
 
         private final ActionListener talkListener = new ActionListener() {
@@ -178,11 +184,8 @@ public class GameApp extends SimpleApplication {
             "Textures/random16.jpg",
             "Textures/random17.gif",
             "Materials/lilMonster.png"
-
-            
-            
 );
-
+        
         panelField.addRandomPanels(assetManager, artSet, 3f, 4f, 10, 12f, 0.02f);
         panelField.attachTo(rootNode);
 
@@ -207,14 +210,21 @@ public class GameApp extends SimpleApplication {
         terrainGround=new TerrainGround(assetManager);
         terrainGround.attachTo(rootNode);
 
+        //World map
+        worldMap = new WorldMap(assetManager, rootNode, terrainGround);
+        worldMap.setWorldRadius(35f);
+
         // Expression tracker
         expressionTracker = new ExpressionTracker();
 
         //Tunnel
-
-        maze = assetManager.loadModel("Models/maze_tunnel.glb");
+        maze = worldMap.addModel(
+        "maze",
+        "Models/maze_tunnel.glb",
+        new Vector3f(0f, 0f, 0f),
+        90f // yaw
+        );
         maze.setLocalTranslation(0f, 0f, 0f);
-        rootNode.attachChild(maze);
         mazeBasePos.set(maze.getLocalTranslation());
         mazeBaseScale = maze.getLocalScale().x;     
         Material tunnelMat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
@@ -245,6 +255,7 @@ if (expressionTracker != null) {
 }
         ground.update(tpf);
         player.update(tpf);
+        applyWorldBoundary(tpf);
         npcs.update(tpf);
         sky.follow(player.getModel().getLocalTranslation());
         if (panelField != null) {
@@ -287,7 +298,7 @@ if (expressionTracker != null) {
     float yAmp = 0.00f + motion * 0.25f;
     float scale = mazeBaseScale * (1f + pulse * scaleAmp);
     maze.setLocalScale(scale);
-    maze.setLocalTranslation(mazeBasePos.x, mazeBasePos.y + pulse * yAmp, mazeBasePos.x);
+    maze.setLocalTranslation(mazeBasePos.x, mazeBasePos.y + pulse * yAmp, mazeBasePos.z);
 }
 
 
@@ -322,5 +333,32 @@ if (expressionTracker != null) {
                 });
             }
         }, "NpcDialogueThread").start();
+    }
+
+    private void applyWorldBoundary(float tpf) {
+        if (player == null) return;
+        var model = player.getModel();
+        Vector3f position = model.getLocalTranslation();
+        float x = position.x;
+        float z = position.z;
+        float distance = (float)Math.sqrt(x * x + z * z);
+        if (distance <= worldRadius) return;
+        //Move back towards center
+        float nx = x / distance;
+        float nz = z / distance;
+        float overflow = distance - worldRadius;
+        //Push
+        float push = overflow * pushStrength * tpf;
+        float newX = x - nx * push;
+        float newZ = z - nz * push;
+        //Hard clamp
+        float hardLimit = worldRadius + hardClampMargin;
+        float newDistance = (float)Math.sqrt(newX * newZ + newZ * newZ);
+        if (newDistance > hardLimit) {
+            float scale = hardLimit / newDistance;
+            newX *= scale;
+            newZ *= scale;
+        }
+        model.setLocalTranslation(newX, position.y, newZ);
     }
 }
