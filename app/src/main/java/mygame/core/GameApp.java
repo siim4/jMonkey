@@ -26,17 +26,13 @@ import mygame.dialogue.DialogueClient;
 import mygame.art.GifSheetPanel;
 import mygame.world.WaterSystem;
 import mygame.world.WorldMap;
-
+import mygame.world.MapPoints;
 import java.util.Arrays;
 import java.util.List;
-
 import mygame.sense.ExpressionTracker;
 import mygame.ui.DialogueUi;
 import mygame.world.TerrainGround;
 import mygame.util.SpriteSheetUvAnimator;
-
-
-
 
 
 
@@ -67,19 +63,28 @@ public class GameApp extends SimpleApplication {
     private float pushStrength = 8f;     
     private float hardClampMargin = 2f;  
 
+   private final ActionListener talkListener = new ActionListener() {
+    @Override
+    public void onAction(String name, boolean isPressed, float tpf) {
+        if (!isPressed || !"Talk".equals(name)) return;
 
-        private final ActionListener talkListener = new ActionListener() {
-        @Override
-        public void onAction(String name, boolean isPressed, float tpf) {
-            if (!isPressed) return;
-            if ("Talk".equals(name)) {
-                if (!dialogueUi.isActive()) {
-                    // hardcoded NPC id + display name TODO: handle this by detection if we grow implementation
-                    dialogueUi.openForNpc("witch_of_mist", "Witch of Mist");
-                }
-            }
+        if (player == null || npcs == null) return;
+
+        Vector3f p = player.getModel().getLocalTranslation();
+        var npc = npcs.getNearestNpc(p, 7.0f);
+
+        if (npc == null) {
+            System.out.println("(no one nearby to talk to)");
+            return;
         }
-    };
+
+        if (!dialogueUi.isActive()) {
+            dialogueUi.openForNpc(npc.id(), npc.display());
+        }
+    }
+};
+
+
 
     public static void main(String[] args) {
         GameApp app = new GameApp();
@@ -112,6 +117,12 @@ public class GameApp extends SimpleApplication {
         rootNode.attachChild(model);
         var composer = AnimUtils.findComposer(model);
         player = new PlayerController(model, composer);
+        player.getModel().setLocalTranslation(MapPoints.PLAYER_SPAWN.clone());
+        if(terrainGround != null) {
+            Vector3f positionPlayer = player.getModel().getLocalTranslation();
+            float y = terrainGround.getHeight(positionPlayer.x, positionPlayer.z);
+            player.getModel().setLocalTranslation(positionPlayer.x, y, positionPlayer.z);
+        }
 
         // Camera: mouse-controlled orbit around player
         flyCam.setEnabled(false);
@@ -153,12 +164,23 @@ public class GameApp extends SimpleApplication {
         new InputMapper(inputManager, player);
 
         // NPCs
-        npcs = new NpcManager(assetManager, rootNode);
+      npcs = new NpcManager(assetManager, rootNode);
 
-        npcs.spawn("Models/angel.gltf", -8f,  -6f, 1.0f, 20f);
-        npcs.spawn("Models/angel.gltf",  6f,   3f, 1.0f, 20f);
-        npcs.spawn("Models/angel.gltf", -3f,  10f, 1.0f, 20f);
-        npcs.spawn("Models/angel.gltf", 12f,  -9f, 1.0f, 20f);
+        // Witch
+      npcs.spawn(
+            "witch_of_mist",
+            "Witch of Mist",
+            "Models/witch.glb", 
+            -8f, -6f,
+            5.0f,
+            20f
+        );
+
+        // Angels
+        npcs.spawn("angel_01", "Angel", "Models/angel.gltf",  6f,  3f, 3.0f, 20f);
+        npcs.spawn("angel_02", "Angel", "Models/angel.gltf", -3f, 10f, 3.0f, 20f);
+        npcs.spawn("angel_03", "Angel", "Models/angel.gltf", 12f, -9f, 3.0f, 20f);
+
 
         // Panels
 
@@ -242,122 +264,137 @@ public class GameApp extends SimpleApplication {
    
 
 
-    @Override
-    public void simpleUpdate(float tpf) {
+        @Override
+        public void simpleUpdate(float tpf) {
 
-if (expressionTracker != null) {
-    expressionTracker.update(tpf);
-    float motion = expressionTracker.getMotionAmount();
-    ground.setExpression(motion);
+        if (expressionTracker != null) {
+        expressionTracker.update(tpf);
+        float motion = expressionTracker.getMotionAmount();
+        ground.setExpression(motion);
 
 
-}
-        ground.update(tpf);
-        player.update(tpf);
-        applyWorldBoundary(tpf);
-        npcs.update(tpf);
-        sky.follow(player.getModel().getLocalTranslation());
-        if (panelField != null) {
-            panelField.update(tpf, cam);
+    }
+            ground.update(tpf);
+            player.update(tpf);
+            applyWorldBoundary(tpf);
+            npcs.update(tpf);
+            sky.follow(player.getModel().getLocalTranslation());
+            if (panelField != null) {
+                panelField.update(tpf, cam);
+                }
+            for (var p : gifSheets) p.update(tpf, cam);
+                if (water != null) {
+                water.update(tpf);
             }
-        for (var p : gifSheets) p.update(tpf, cam);
-            if (water != null) {
-            water.update(tpf);
-        }
-              if (dialogueUi != null) {
-            dialogueUi.update(tpf);
-        }
-
-        if (terrainGround != null) {
-    var model = player.getModel();
-    Vector3f pos = model.getLocalTranslation();
-
-    float terrainY = terrainGround.getHeight(pos.x, pos.z);
-    model.setLocalTranslation(pos.x, terrainY, pos.z);
-}
-    if (terrainGround != null && maze != null) {
-        Vector3f position = maze.getLocalTranslation();
-        float y = terrainGround.getHeight(position.x, position.z);
-        maze.setLocalTranslation(position.x, y, position.z);
-        maze.setShadowMode(RenderQueue.ShadowMode.CastAndReceive);
-    }
-    if (maze != null) {
-    tunnelAnimTime += tpf;
-    if (tunnelAnimTime >= tunnelFrameSec) {
-        tunnelAnimTime = 0f;
-        tunnelFrame = (tunnelFrame + 1) % tunnelFrames;
-        SpriteSheetUvAnimator.applyFrame(maze, tunnelFrame, tunnelFrames);
-    }
-}
-    if (maze != null && expressionTracker != null) {
-    float motion = expressionTracker.getMotionAmount();
-    mazePulsePhase += tpf * (1.0f + motion * 6.0f);
-    float pulse = com.jme3.math.FastMath.sin(mazePulsePhase);
-    float scaleAmp = 0.01f + motion * 0.06f;
-    float yAmp = 0.00f + motion * 0.25f;
-    float scale = mazeBaseScale * (1f + pulse * scaleAmp);
-    maze.setLocalScale(scale);
-    maze.setLocalTranslation(mazeBasePos.x, mazeBasePos.y + pulse * yAmp, mazeBasePos.z);
-}
-
-
-    }
-
-     private void initTalkKey() {
-        inputManager.addMapping("Talk", new KeyTrigger(KeyInput.KEY_T));
-        inputManager.addListener(talkListener, "Talk");
-    }
-
-    private void startNpcRequest(String npcGameId, String playerMessage) {
-        final String playerId = "player1";  // later you can derive from savegame / profile
-
-        new Thread(() -> {
-            try {
-                String reply = dialogueClient.talkToNpc(npcGameId, playerId, playerMessage);
-                System.out.println("NPC replied: " + reply);
-
-                // Must update UI on JME render thread
-                this.enqueue(() -> {
-                    dialogueUi.showNpcReply(reply);
-                    return null;
-                });
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                this.enqueue(() -> {
-                    dialogueUi.showNpcReply(
-                            "(the witch coughs, static crackles in the air — something went wrong...)"
-                    );
-                    return null;
-                });
+                if (dialogueUi != null) {
+                dialogueUi.update(tpf);
             }
-        }, "NpcDialogueThread").start();
-    }
 
-    private void applyWorldBoundary(float tpf) {
-        if (player == null) return;
+            if (terrainGround != null) {
         var model = player.getModel();
-        Vector3f position = model.getLocalTranslation();
-        float x = position.x;
-        float z = position.z;
-        float distance = (float)Math.sqrt(x * x + z * z);
-        if (distance <= worldRadius) return;
-        //Move back towards center
-        float nx = x / distance;
-        float nz = z / distance;
-        float overflow = distance - worldRadius;
-        //Push
-        float push = overflow * pushStrength * tpf;
-        float newX = x - nx * push;
-        float newZ = z - nz * push;
-        //Hard clamp
-        float hardLimit = worldRadius + hardClampMargin;
-        float newDistance = (float)Math.sqrt(newX * newZ + newZ * newZ);
-        if (newDistance > hardLimit) {
-            float scale = hardLimit / newDistance;
-            newX *= scale;
-            newZ *= scale;
-        }
-        model.setLocalTranslation(newX, position.y, newZ);
+        Vector3f pos = model.getLocalTranslation();
+
+        float terrainY = terrainGround.getHeight(pos.x, pos.z);
+        model.setLocalTranslation(pos.x, terrainY, pos.z);
     }
+        if (terrainGround != null && maze != null) {
+            Vector3f position = maze.getLocalTranslation();
+            float y = terrainGround.getHeight(position.x, position.z);
+            maze.setLocalTranslation(position.x, y, position.z);
+            maze.setShadowMode(RenderQueue.ShadowMode.CastAndReceive);
+        }
+        if (maze != null) {
+        tunnelAnimTime += tpf;
+        if (tunnelAnimTime >= tunnelFrameSec) {
+            tunnelAnimTime = 0f;
+            tunnelFrame = (tunnelFrame + 1) % tunnelFrames;
+            SpriteSheetUvAnimator.applyFrame(maze, tunnelFrame, tunnelFrames);
+        }
+    }
+        if (maze != null && expressionTracker != null) {
+        float motion = expressionTracker.getMotionAmount();
+        mazePulsePhase += tpf * (1.0f + motion * 6.0f);
+        float pulse = com.jme3.math.FastMath.sin(mazePulsePhase);
+        float scaleAmp = 0.01f + motion * 0.06f;
+        float yAmp = 0.00f + motion * 0.25f;
+        float scale = mazeBaseScale * (1f + pulse * scaleAmp);
+        maze.setLocalScale(scale);
+        maze.setLocalTranslation(mazeBasePos.x, mazeBasePos.y + pulse * yAmp, mazeBasePos.z);
+    }
+        float baseSpeed = 4f;
+        float slowSpeed = 1.6f;
+
+        Vector3f p = player.getModel().getLocalTranslation();
+        float dx = p.x - MapPoints.MAZE_ENTRY.x;
+        float dz = p.z - MapPoints.MAZE_ENTRY.z;
+        float dist2 = dx*dx + dz*dz;
+
+        float mazeZoneRadius = 8f;
+
+        if (dist2 < mazeZoneRadius * mazeZoneRadius) {
+            player.setMoveSpeed(slowSpeed);
+        } else {
+            player.setMoveSpeed(baseSpeed);
+        }
+
+
+        }
+
+        private void initTalkKey() {
+            inputManager.addMapping("Talk", new KeyTrigger(KeyInput.KEY_T));
+            inputManager.addListener(talkListener, "Talk");
+        }
+
+        private void startNpcRequest(String npcGameId, String playerMessage) {
+            final String playerId = "player1";  //TODO: derive from backend
+
+            new Thread(() -> {
+                try {
+                    String reply = dialogueClient.talkToNpc(npcGameId, playerId, playerMessage);
+                    System.out.println("NPC replied: " + reply);
+
+                    this.enqueue(() -> {
+                        dialogueUi.showNpcReply(reply);
+                        return null;
+                    });
+
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    this.enqueue(() -> {
+                        dialogueUi.showNpcReply(
+                                "(the witch coughs, static crackles in the air — something went wrong...)"
+                        );
+                        return null;
+                    });
+                }
+            }, "NpcDialogueThread").start();
+        }
+
+        private void applyWorldBoundary(float tpf) {
+            if (player == null) return;
+            var model = player.getModel();
+            Vector3f position = model.getLocalTranslation();
+            float x = position.x;
+            float z = position.z;
+            float distance = (float)Math.sqrt(x * x + z * z);
+            if (distance <= worldRadius) return;
+            //Move back towards center
+            float nx = x / distance;
+            float nz = z / distance;
+            float overflow = distance - worldRadius;
+            //Push
+            float push = overflow * pushStrength * tpf;
+            float newX = x - nx * push;
+            float newZ = z - nz * push;
+            //Hard clamp
+            float hardLimit = worldRadius + hardClampMargin;
+            float newDistance = (float)Math.sqrt(newX * newX + newZ * newZ);
+            if (newDistance > hardLimit) {
+                float scale = hardLimit / newDistance;
+                newX *= scale;
+                newZ *= scale;
+            }
+            model.setLocalTranslation(newX, position.y, newZ);
+        }
+
 }

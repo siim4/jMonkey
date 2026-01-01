@@ -21,6 +21,11 @@ public class PlayerController {
         this.animator = animator;
     }
 
+    public void setMoveSpeed(float speed) {
+    this.moveSpeed = speed;
+}
+
+
     public void update(float tpf) {
         float x = 0, z = 0;
         if (left && !right)  x = -1f;

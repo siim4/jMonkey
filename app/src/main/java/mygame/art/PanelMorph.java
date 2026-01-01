@@ -31,7 +31,9 @@ public class PanelMorph {
     private float fadeTimer = 0f;
     private float fadeDuration = 8f; // Seconds per crossfade
 
+    @SuppressWarnings("unused")
     private final float width;
+    @SuppressWarnings("unused")
     private final float height;
 
     public PanelMorph(AssetManager assets, List<String> imagePaths, float width, float height) {

@@ -15,7 +15,7 @@ public class Npc {
     private final Random rng = new Random();
 
     // Movement settings
-    private float speed = 1.2f + rng.nextFloat() * 0.8f; 
+    private float speed = 0.8f + rng.nextFloat() * 0.8f; 
     private float areaHalfSize = 20f;                    
 
     // Direction change timer
